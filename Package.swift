@@ -11,6 +11,10 @@ let package = Package(
             name: "colm",
             path: "Sources/colm"
         ),
-        // Test target added in Phase 2 when first tests land.
+        .testTarget(
+            name: "colmTests",
+            dependencies: ["colm"],
+            path: "Tests/colmTests"
+        ),
     ]
 )
