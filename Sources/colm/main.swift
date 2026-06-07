@@ -36,8 +36,11 @@ func printUsage() {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var tracker: WindowTracker?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Phase 2+ installs event tap and switcher panel here.
+        tracker = WindowTracker()
+        // Phase 3+ installs the event tap and Phase 4 the switcher panel.
     }
 }
 

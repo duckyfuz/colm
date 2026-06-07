@@ -56,7 +56,7 @@ final class WindowEnumerator {
             let minimized = (copyAttribute(window, kAXMinimizedAttribute) as? Bool) ?? false
 
             infos.append(WindowInfo(
-                id: WindowID(pid: pid, axHash: ObjectIdentifier(window).hashValue),
+                id: WindowID.make(pid: pid, axElement: window),
                 pid: pid,
                 appName: appName,
                 appBundleID: bundleID,

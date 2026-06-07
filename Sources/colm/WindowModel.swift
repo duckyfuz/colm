@@ -4,12 +4,16 @@ import ApplicationServices
 /// Stable identity for a window across enumeration snapshots.
 ///
 /// We can't rely on private API (`_AXUIElementGetWindow`) for a real
-/// CGWindowID, so identity is `(pid, AX element hash)`. This is stable for
-/// the lifetime of a window — the AXUIElement object is reused by the AX
-/// server while the window exists.
+/// CGWindowID, so identity is `(pid, CFHash of AX element)`. CFHash is
+/// stable for the lifetime of a window — the AX server returns equal
+/// AXUIElement refs for the same window across queries.
 struct WindowID: Hashable {
     let pid: pid_t
     let axHash: Int
+
+    static func make(pid: pid_t, axElement: AXUIElement) -> WindowID {
+        WindowID(pid: pid, axHash: Int(bitPattern: CFHash(axElement)))
+    }
 }
 
 struct WindowInfo: Identifiable, Equatable {
