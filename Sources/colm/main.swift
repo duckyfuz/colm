@@ -5,6 +5,7 @@ let version = "0.0.1"
 enum Command {
     case run
     case setup
+    case list
     case version
     case help
     case unknown(String)
@@ -14,6 +15,7 @@ func parseArgs(_ args: [String]) -> Command {
     guard args.count > 1 else { return .run }
     switch args[1] {
     case "setup": return .setup
+    case "list": return .list
     case "--version", "-v": return .version
     case "--help", "-h": return .help
     default: return .unknown(args[1])
@@ -27,6 +29,7 @@ func printUsage() {
     Usage:
       colm            Run the switcher (foreground daemon)
       colm setup      Walk through Accessibility permission setup
+      colm list       Print enumerated windows (debug)
       colm --version  Print version
       colm --help     Print this message
     """)
@@ -54,6 +57,44 @@ func runApp() -> Never {
     app.delegate = delegate
     app.run()
     exit(0)
+}
+
+func runList() -> Never {
+    guard Permissions.isTrusted() else {
+        FileHandle.standardError.write(Data("""
+            colm: Accessibility permission is required.
+
+            Run `colm setup` to grant it, then try again.
+
+            """.utf8))
+        exit(1)
+    }
+
+    let windows = WindowEnumerator().snapshot()
+    if windows.isEmpty {
+        print("No switchable windows found.")
+        exit(0)
+    }
+
+    let appWidth = max(3, windows.map { $0.appName.count }.max() ?? 3)
+    let pidHeader = "PID"
+    let minHeader = "Min"
+    print("\(pidHeader.padded(6)) \(minHeader.padded(4)) \("App".padded(appWidth))  Title")
+    print(String(repeating: "-", count: 6 + 1 + 4 + 1 + appWidth + 2 + 5))
+    for w in windows {
+        let pidStr = "\(w.pid)".padded(6)
+        let minStr = (w.isMinimized ? "*" : "").padded(4)
+        let appStr = w.appName.padded(appWidth)
+        let title = w.title.isEmpty ? "(untitled)" : w.title
+        print("\(pidStr) \(minStr) \(appStr)  \(title)")
+    }
+    exit(0)
+}
+
+private extension String {
+    func padded(_ width: Int) -> String {
+        count >= width ? self : self + String(repeating: " ", count: width - count)
+    }
 }
 
 func runSetup() -> Never {
@@ -107,6 +148,8 @@ case .help:
     exit(0)
 case .setup:
     runSetup()
+case .list:
+    runList()
 case .unknown(let arg):
     FileHandle.standardError.write(Data("unknown argument: \(arg)\n\n".utf8))
     printUsage()
