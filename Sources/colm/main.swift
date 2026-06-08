@@ -35,12 +35,61 @@ func printUsage() {
     """)
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, HotkeyEngineDelegate {
     private var tracker: WindowTracker?
+    private var enumerator: WindowEnumerator?
+    private var engine: HotkeyEngine?
+    private var currentSnapshot: [WindowInfo] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         tracker = WindowTracker()
-        // Phase 3+ installs the event tap and Phase 4 the switcher panel.
+        enumerator = WindowEnumerator()
+        let engine = HotkeyEngine(delegate: self)
+        if !engine.start() {
+            FileHandle.standardError.write(Data("colm: failed to install event tap — is Accessibility granted?\n".utf8))
+            NSApp.terminate(nil)
+            return
+        }
+        self.engine = engine
+        FileHandle.standardError.write(Data("colm: ready. Hold ⌥ and press ⇥ to cycle. ⌃C to quit.\n".utf8))
+    }
+
+    // MARK: - HotkeyEngineDelegate
+
+    func hotkeyEngineRequestsWindowCount() -> Int {
+        guard let enumerator = enumerator else { return 0 }
+        let snapshot = enumerator.snapshot()
+        let ordered = tracker?.order(snapshot) ?? snapshot
+        currentSnapshot = ordered
+        return ordered.count
+    }
+
+    func hotkeyEngine(didEmit effect: SwitcherStateMachine.Effect) {
+        switch effect {
+        case .show(let idx):
+            print("[show] count=\(currentSnapshot.count) selected=\(idx) → \(describe(currentSnapshot[safe: idx]))")
+        case .move(let idx):
+            print("[move] selected=\(idx) → \(describe(currentSnapshot[safe: idx]))")
+        case .commit(let idx):
+            print("[commit] index=\(idx) → \(describe(currentSnapshot[safe: idx]))")
+            if let w = currentSnapshot[safe: idx] {
+                tracker?.touch(w)
+            }
+        case .cancel:
+            print("[cancel]")
+        }
+    }
+
+    private func describe(_ w: WindowInfo?) -> String {
+        guard let w = w else { return "(no window)" }
+        let title = w.title.isEmpty ? "(untitled)" : w.title
+        return "\(w.appName) — \(title)"
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
