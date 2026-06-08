@@ -92,12 +92,6 @@ private extension Array {
     }
 }
 
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
 func runApp() -> Never {
     if !Permissions.isTrusted() {
         FileHandle.standardError.write(Data("""
