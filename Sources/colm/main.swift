@@ -39,11 +39,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, HotkeyEngineDelegate {
     private var tracker: WindowTracker?
     private var enumerator: WindowEnumerator?
     private var engine: HotkeyEngine?
+    private var panel: SwitcherPanel?
+    private let model = SwitcherViewModel()
     private var currentSnapshot: [WindowInfo] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         tracker = WindowTracker()
         enumerator = WindowEnumerator()
+        panel = SwitcherPanel(model: model)
         let engine = HotkeyEngine(delegate: self)
         if !engine.start() {
             FileHandle.standardError.write(Data("colm: failed to install event tap — is Accessibility granted?\n".utf8))
@@ -67,23 +70,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, HotkeyEngineDelegate {
     func hotkeyEngine(didEmit effect: SwitcherStateMachine.Effect) {
         switch effect {
         case .show(let idx):
-            print("[show] count=\(currentSnapshot.count) selected=\(idx) → \(describe(currentSnapshot[safe: idx]))")
+            model.update(windows: currentSnapshot, selectionIndex: idx)
+            panel?.present()
         case .move(let idx):
-            print("[move] selected=\(idx) → \(describe(currentSnapshot[safe: idx]))")
+            model.selectionIndex = idx
         case .commit(let idx):
-            print("[commit] index=\(idx) → \(describe(currentSnapshot[safe: idx]))")
+            panel?.dismiss()
             if let w = currentSnapshot[safe: idx] {
                 tracker?.touch(w)
+                // Phase 5 will perform the actual raise/activate here.
             }
         case .cancel:
-            print("[cancel]")
+            panel?.dismiss()
         }
     }
+}
 
-    private func describe(_ w: WindowInfo?) -> String {
-        guard let w = w else { return "(no window)" }
-        let title = w.title.isEmpty ? "(untitled)" : w.title
-        return "\(w.appName) — \(title)"
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
