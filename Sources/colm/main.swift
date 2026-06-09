@@ -77,8 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, HotkeyEngineDelegate {
         case .commit(let idx):
             panel?.dismiss()
             if let w = currentSnapshot[safe: idx] {
+                WindowActivator.activate(w)
                 tracker?.touch(w)
-                // Phase 5 will perform the actual raise/activate here.
             }
         case .cancel:
             panel?.dismiss()
