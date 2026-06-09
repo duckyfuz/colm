@@ -8,8 +8,6 @@ struct SwitcherView: View {
     @ObservedObject var model: SwitcherViewModel
 
     static let rowHeight: CGFloat = 44
-    static let maxVisibleRows = 9
-    static let panelWidth: CGFloat = 640
     static let outerCornerRadius: CGFloat = 18
 
     var body: some View {
@@ -27,7 +25,7 @@ struct SwitcherView: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 8)
             }
-            .frame(width: Self.panelWidth, height: panelHeight)
+            .frame(width: model.panelWidth, height: panelHeight)
             .background(
                 VisualEffectBackground(material: .popover, blendingMode: .behindWindow)
             )
@@ -46,7 +44,7 @@ struct SwitcherView: View {
     }
 
     private var panelHeight: CGFloat {
-        let rows = min(max(model.windows.count, 1), Self.maxVisibleRows)
+        let rows = min(max(model.windows.count, 1), model.maxVisibleRows)
         return CGFloat(rows) * (Self.rowHeight + 1) + 16
     }
 

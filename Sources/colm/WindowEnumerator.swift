@@ -17,16 +17,24 @@ final class WindowEnumerator {
     /// will fail fast rather than block the whole snapshot.
     static let axTimeout: Float = 0.2
 
+    var blacklist: Set<String> = []
+    var includeMinimized: Bool = true
+
     private var iconCache: [String: NSImage] = [:]
 
     func snapshot() -> [WindowInfo] {
         let apps = NSWorkspace.shared.runningApplications.filter {
-            $0.activationPolicy == .regular && !$0.isTerminated
+            guard $0.activationPolicy == .regular, !$0.isTerminated else { return false }
+            if let bid = $0.bundleIdentifier, blacklist.contains(bid) { return false }
+            return true
         }
 
         var all: [WindowInfo] = []
         for app in apps {
             all.append(contentsOf: windows(for: app))
+        }
+        if !includeMinimized {
+            all.removeAll { $0.isMinimized }
         }
         return all
     }

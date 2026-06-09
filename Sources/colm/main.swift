@@ -6,6 +6,7 @@ enum Command {
     case run
     case setup
     case list
+    case config
     case version
     case help
     case unknown(String)
@@ -16,6 +17,7 @@ func parseArgs(_ args: [String]) -> Command {
     switch args[1] {
     case "setup": return .setup
     case "list": return .list
+    case "config": return .config
     case "--version", "-v": return .version
     case "--help", "-h": return .help
     default: return .unknown(args[1])
@@ -30,31 +32,46 @@ func printUsage() {
       colm            Run the switcher (foreground daemon)
       colm setup      Walk through Accessibility permission setup
       colm list       Print enumerated windows (debug)
+      colm config     Print the effective configuration
       colm --version  Print version
       colm --help     Print this message
     """)
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, HotkeyEngineDelegate {
+    let config: Config
+
     private var tracker: WindowTracker?
     private var enumerator: WindowEnumerator?
     private var engine: HotkeyEngine?
     private var panel: SwitcherPanel?
-    private let model = SwitcherViewModel()
+    private let model: SwitcherViewModel
     private var currentSnapshot: [WindowInfo] = []
+
+    init(config: Config) {
+        self.config = config
+        self.model = SwitcherViewModel(
+            panelWidth: CGFloat(config.panelWidth),
+            maxVisibleRows: config.rowsMax
+        )
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         tracker = WindowTracker()
-        enumerator = WindowEnumerator()
+        let enumerator = WindowEnumerator()
+        enumerator.blacklist = Set(config.blacklist)
+        enumerator.includeMinimized = config.showMinimized
+        self.enumerator = enumerator
         panel = SwitcherPanel(model: model)
-        let engine = HotkeyEngine(delegate: self)
+        let engine = HotkeyEngine(delegate: self, modifier: config.hotkeyModifier)
         if !engine.start() {
             FileHandle.standardError.write(Data("colm: failed to install event tap — is Accessibility granted?\n".utf8))
             NSApp.terminate(nil)
             return
         }
         self.engine = engine
-        FileHandle.standardError.write(Data("colm: ready. Hold ⌥ and press ⇥ to cycle. ⌃C to quit.\n".utf8))
+        FileHandle.standardError.write(Data("colm: ready. Hold the configured modifier and press ⇥ to cycle. ⌃C to quit.\n".utf8))
     }
 
     // MARK: - HotkeyEngineDelegate
@@ -102,11 +119,18 @@ func runApp() -> Never {
             """.utf8))
         exit(1)
     }
+    let config = Config.load()
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
-    let delegate = AppDelegate()
+    let delegate = AppDelegate(config: config)
     app.delegate = delegate
     app.run()
+    exit(0)
+}
+
+func runConfig() -> Never {
+    let config = Config.load()
+    print(config.describe())
     exit(0)
 }
 
@@ -121,7 +145,11 @@ func runList() -> Never {
         exit(1)
     }
 
-    let windows = WindowEnumerator().snapshot()
+    let config = Config.load()
+    let enumerator = WindowEnumerator()
+    enumerator.blacklist = Set(config.blacklist)
+    enumerator.includeMinimized = config.showMinimized
+    let windows = enumerator.snapshot()
     if windows.isEmpty {
         print("No switchable windows found.")
         exit(0)
@@ -201,6 +229,8 @@ case .setup:
     runSetup()
 case .list:
     runList()
+case .config:
+    runConfig()
 case .unknown(let arg):
     FileHandle.standardError.write(Data("unknown argument: \(arg)\n\n".utf8))
     printUsage()

@@ -24,13 +24,23 @@ protocol HotkeyEngineDelegate: AnyObject {
 
 final class HotkeyEngine {
     weak var delegate: HotkeyEngineDelegate?
+    var modifier: Config.HotkeyModifier
 
     private var stateMachine = SwitcherStateMachine()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    init(delegate: HotkeyEngineDelegate) {
+    init(delegate: HotkeyEngineDelegate, modifier: Config.HotkeyModifier = .option) {
         self.delegate = delegate
+        self.modifier = modifier
+    }
+
+    private var modifierMask: CGEventFlags {
+        switch modifier {
+        case .option: return .maskAlternate
+        case .control: return .maskControl
+        case .command: return .maskCommand
+        }
     }
 
     deinit {
@@ -102,24 +112,24 @@ final class HotkeyEngine {
 
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         let flags = event.flags
-        let optionDown = flags.contains(.maskAlternate)
+        let modifierDown = flags.contains(modifierMask)
         let shiftDown = flags.contains(.maskShift)
 
         switch type {
         case .flagsChanged:
-            // We only care about the Option modifier crossing to "released"
+            // We only care about the chosen modifier crossing to "released"
             // while we're cycling.
-            if !optionDown, case .cycling = stateMachine.state {
+            if !modifierDown, case .cycling = stateMachine.state {
                 emit(.optionUp)
-                // Don't consume — releasing Option should still be visible
-                // to the system (it's a modifier change, not a keystroke).
+                // Don't consume — a modifier change should remain visible
+                // to the system; it's not a keystroke we want to swallow.
                 return Unmanaged.passUnretained(event)
             }
             return Unmanaged.passUnretained(event)
 
         case .keyDown:
             switch keyCode {
-            case kVK_Tab where optionDown:
+            case kVK_Tab where modifierDown:
                 let event: SwitcherStateMachine.Event
                 if case .idle = stateMachine.state {
                     let count = delegate?.hotkeyEngineRequestsWindowCount() ?? 0

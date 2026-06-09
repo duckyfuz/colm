@@ -12,7 +12,7 @@ final class SwitcherPanel: NSPanel {
     init(model: SwitcherViewModel) {
         self.model = model
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: SwitcherView.panelWidth, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: model.panelWidth, height: 200),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -50,8 +50,8 @@ final class SwitcherPanel: NSPanel {
         layoutIfNeeded()
 
         // Size to fit current content before positioning.
-        let fittingSize = contentView?.fittingSize ?? NSSize(width: SwitcherView.panelWidth, height: 200)
-        let size = NSSize(width: SwitcherView.panelWidth, height: max(fittingSize.height, 60))
+        let fittingSize = contentView?.fittingSize ?? NSSize(width: model.panelWidth, height: 200)
+        let size = NSSize(width: model.panelWidth, height: max(fittingSize.height, 60))
         let frame = screen.visibleFrame
         let origin = NSPoint(
             x: frame.midX - size.width / 2,
